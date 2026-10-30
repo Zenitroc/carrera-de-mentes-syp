@@ -23,8 +23,10 @@ Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
   - **Eliminar opciones**: tacha opciones incorrectas y quedan 2 (no se puede en
     Verdadero/Falso ni en preguntas sin opciones).
   - **Cambiar pregunta**: sale otra de la misma temática y dificultad.
-- **Gana el primer equipo que junta un anillo de cada temática.** Con "Seguir jugando"
-  los demás siguen compitiendo por el 2.º puesto, etc.
+- **El juego no termina solo:** al juntar un anillo de cada temática se festeja y se sigue
+  jugando (esos anillos todavía se pueden robar). El botón **Finalizar juego** muestra el
+  podio de ese momento: gana quien tiene más anillos; si empatan, quien los completó
+  antes y después quien tiene más fáciles acertadas.
 - La **Salida**: si caen justo ahí, eligen de qué temática es la pregunta.
 - Si se agotan las preguntas de una temática, se vuelven a habilitar todas.
 

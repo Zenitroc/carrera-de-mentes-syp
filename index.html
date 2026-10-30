@@ -61,6 +61,7 @@
       <div class="topbar-actions">
         <button id="btn-game-bank" class="btn btn-ghost" type="button" title="Cargar otro CSV de preguntas">Preguntas</button>
         <button id="btn-undo" class="btn btn-ghost" type="button" title="Deshacer última acción">Deshacer</button>
+        <button id="btn-finish" class="btn btn-ghost" type="button" title="Ver el podio con la situación actual">Finalizar juego</button>
         <button id="btn-new" class="btn btn-ghost" type="button">Nueva partida</button>
       </div>
     </header>
@@ -127,6 +128,20 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: PODIO ============ -->
+  <div id="modal-podium" class="modal" hidden>
+    <div id="podium-confetti" class="confetti"></div>
+    <div class="modal-card podium-card">
+      <h2 id="podium-title" class="victory-title"></h2>
+      <div id="podium" class="podium"></div>
+      <ol id="podium-rest" class="podium-rest" hidden></ol>
+      <div class="modal-actions">
+        <button id="btn-podium-continue" class="btn btn-primary btn-big" type="button">Seguir jugando</button>
+        <button id="btn-podium-new" class="btn btn-ghost" type="button">Nueva partida</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ MODAL: ELEGIR (temática, dificultad, anillo a robar) ============ -->
   <div id="modal-pick" class="modal" hidden>
     <div id="pick-card" class="modal-card pick-card">
@@ -149,7 +164,7 @@
       <div id="victory-rings" class="theme-chips victory-rings"></div>
       <div class="modal-actions">
         <button id="btn-victory-continue" class="btn btn-primary btn-big" type="button">Seguir jugando</button>
-        <button id="btn-victory-new" class="btn btn-ghost" type="button">Nueva partida</button>
+        <button id="btn-victory-finish" class="btn btn-ghost" type="button">Finalizar juego</button>
       </div>
     </div>
   </div>

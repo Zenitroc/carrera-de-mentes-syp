@@ -715,9 +715,8 @@
      TURNOS Y MOVIMIENTO
      ========================================================= */
   const currentTeam = () => state && state.teams[state.turn];
-  const allFinished = () => state.teams.every(isWinner);
 
-  // Pasa al siguiente equipo que no haya ganado. Los que están en el
+  // Pasa al siguiente equipo. Los que están en el
   // corral pierden ese turno (se les descuenta y se sigue de largo).
   function nextTurn() {
     state.bonus = false;
@@ -727,7 +726,6 @@
     for (let guard = 0; guard < n * (1 + Math.max(1, C.JAIL_TURNS | 0)) + 1; guard++) {
       idx = (idx + 1) % n;
       const t = state.teams[idx];
-      if (isWinner(t)) continue;
       if (t.jail > 0) { t.jail--; skipped.push(t.name); continue; }
       state.turn = idx;
       break;
@@ -856,7 +854,7 @@
   async function playTurn() {
     if (busy || !dice || !state) return;
     const team = currentTeam();
-    if (!team || isWinner(team)) return;
+    if (!team) return;
 
     pushHistory();
     busy = true;
@@ -875,7 +873,7 @@
 
   // Si respondió bien sigue tirando; si no, pasa el turno
   function afterTurn(team, result) {
-    if (result === 'ok' && C.CORRECT_KEEPS_TURN && !isWinner(team)) {
+    if (result === 'ok' && C.CORRECT_KEEPS_TURN) {
       state.bonus = true;
       toast(`¡Correcto! ${team.name} sigue tirando`, 2200);
     } else {
@@ -1151,42 +1149,36 @@
   function renderPanel(turnChanged = false) {
     const cur = currentTeam();
     const card = $('#turn-card');
-    const finished = allFinished();
-    if (finished) {
-      card.style.setProperty('--team', '#e5b842');
-      card.innerHTML = `<div class="turn-avatar"><span class="av av-initial">FIN</span></div>
-        <div><div class="turn-label">Fin</div><div class="turn-name">¡Partida terminada!</div></div>`;
-    } else {
-      card.style.setProperty('--team', cur.color);
-      card.innerHTML = `
-        <div class="turn-avatar">${avatarHTML(cur.avatar)}</div>
-        <div>
-          <div class="turn-label">${state.bonus ? 'Sigue tirando' : 'Turno de'}</div>
-          <div class="turn-name">${esc(cur.name)}</div>
-          <div class="turn-meta">Anillos: ${cur.rings.length} de ${state.themes.length}</div>
-        </div>`;
-    }
+    card.style.setProperty('--team', cur.color);
+    card.innerHTML = `
+      <div class="turn-avatar">${avatarHTML(cur.avatar)}</div>
+      <div>
+        <div class="turn-label">${state.bonus ? 'Sigue tirando' : 'Turno de'}</div>
+        <div class="turn-name">${esc(cur.name)}</div>
+        <div class="turn-meta">Anillos: ${cur.rings.length} de ${state.themes.length}</div>
+      </div>`;
     if (turnChanged) { card.classList.remove('changed'); void card.offsetWidth; card.classList.add('changed'); }
 
     // Dado y acciones
     document.querySelectorAll('.dice-btn').forEach(b => {
       b.classList.toggle('selected', +b.dataset.value === dice);
-      b.disabled = busy || finished;
+      b.disabled = busy;
     });
-    $('#btn-move').disabled = busy || !dice || finished;
+    $('#btn-move').disabled = busy || !dice;
     $('#btn-move').textContent = dice ? `¡Mover ${dice}!` : '¡Mover!';
-    $('#btn-ring').disabled = busy || finished;
-    $('#btn-skip').disabled = busy || finished;
-    $('#btn-ask').disabled = busy || finished;
+    $('#btn-ring').disabled = busy;
+    $('#btn-skip').disabled = busy;
+    $('#btn-ask').disabled = busy;
     $('#btn-undo').disabled = busy;
+    $('#btn-finish').disabled = busy;
 
     // Tabla de equipos (ordenada por cantidad de anillos)
     const order = [...state.teams].sort((a, b) => b.rings.length - a.rings.length);
     $('#score-list').innerHTML = order.map(t => `
-      <li class="score-item ${cur && t.id === cur.id && !finished ? 'current' : ''} ${isWinner(t) ? 'finished' : ''}" style="--team:${t.color}" data-id="${t.id}">
+      <li class="score-item ${cur && t.id === cur.id ? 'current' : ''}" style="--team:${t.color}" data-id="${t.id}">
         <div class="score-avatar">${avatarHTML(t.avatar)}</div>
         <div class="score-info">
-          <div class="score-name">${esc(t.name)}${isWinner(t) ? ' <span class="winner-tag">Ganador</span>' : ''}${t.jail > 0 ? ' <span class="jail-tag">En el corral</span>' : ''}</div>
+          <div class="score-name">${esc(t.name)}${isWinner(t) ? ' <span class="winner-tag">Todos los anillos</span>' : ''}${t.jail > 0 ? ' <span class="jail-tag">En el corral</span>' : ''}</div>
           <div class="score-pos">Anillos: ${t.rings.length} de ${state.themes.length} ${jokerBadges(t)}</div>
         </div>
         <button type="button" class="btn-icon" data-ring="-1" title="Quitar último anillo" ${busy || !t.rings.length ? 'disabled' : ''}>−</button>
@@ -1229,6 +1221,7 @@
     $('#btn-game-bank').addEventListener('click', () => {
       if (!busy && confirm(`Banco actual: ${bank.questions.length} preguntas.\n¿Cargar otro archivo CSV?\n(Las temáticas del tablero no cambian hasta la próxima partida)`)) $('#bank-file').click();
     });
+    $('#btn-finish').addEventListener('click', () => { if (!busy) showPodium(); });
     $('#btn-new').addEventListener('click', () => {
       if (busy) return;
       if (confirm('¿Empezar una nueva partida? Se borrará la partida actual.')) { clearSave(); showSetup(); }
@@ -1268,21 +1261,67 @@
   /* =========================================================
      VICTORIA Y CONTINUAR
      ========================================================= */
+  // Juntar todos los anillos se festeja, pero el juego sigue
   function showVictory(team) {
     const place = state.winners.length;
     $('#victory-avatar').innerHTML = avatarHTML(team.avatar);
     $('#modal-victory').style.setProperty('--team', team.color);
-    $('#victory-title').textContent = place === 1 ? `¡Ganó ${team.name}!` : `¡${team.name} completó los anillos!`;
-    $('#victory-text').textContent = `Puesto #${place} · juntó los ${state.themes.length} anillos`;
+    $('#victory-title').textContent = `¡${team.name} juntó todos los anillos!`;
+    $('#victory-text').textContent = place === 1 ? 'Son los primeros en completarlos' : `Son los ${place}.º en completarlos`;
     $('#victory-rings').innerHTML = ringProgress(team);
-    $('#btn-victory-continue').hidden = allFinished();
     openModal('#modal-victory');
-    launchConfetti();
+    launchConfetti('#confetti');
     fanfare();
   }
 
-  function launchConfetti() {
-    const box = $('#confetti');
+  // Tabla de posiciones: más anillos primero; si empatan, el que los
+  // completó antes y después el que tiene más fáciles acertadas.
+  // Los empatados en todo comparten puesto (1, 1, 3...).
+  function standings() {
+    const key = t => {
+      const done = state.winners.indexOf(t.id);
+      const easy = Object.values(t.easy || {}).reduce((a, b) => a + b, 0);
+      return [-t.rings.length, done < 0 ? Infinity : done, -easy];
+    };
+    const sorted = state.teams.map(t => ({ team: t, key: key(t) }))
+      .sort((a, b) => a.key[0] - b.key[0] || (a.key[1] === b.key[1] ? 0 : a.key[1] - b.key[1]) || a.key[2] - b.key[2]);
+    let place = 0;
+    return sorted.map((r, i) => {
+      if (!i || r.key.some((v, k) => v !== sorted[i - 1].key[k])) place = i + 1;
+      return { team: r.team, place };
+    });
+  }
+
+  // Podio con la situación actual: los 3 primeros en escalones
+  // (el 1.º al medio) y el resto en una lista abajo.
+  function showPodium() {
+    const rows = standings();
+    const champs = rows.filter(r => r.place === 1).map(r => esc(r.team.name));
+    const rings = t => `${t.rings.length} de ${state.themes.length} anillos`;
+    $('#podium-title').innerHTML = champs.length > 1
+      ? `¡Empate entre ${champs.slice(0, -1).join(', ')} y ${champs[champs.length - 1]}!`
+      : `¡Ganó ${champs[0]}!`;
+    const top = rows.slice(0, 3);
+    const order = top.length > 1 ? [top[1], top[0], top[2]].filter(Boolean) : top;
+    $('#podium').innerHTML = order.map(r => `
+      <div class="podium-col" style="--team:${r.team.color}">
+        <div class="podium-avatar">${avatarHTML(r.team.avatar)}</div>
+        <div class="podium-name">${esc(r.team.name)}</div>
+        <div class="podium-rings">${rings(r.team)}</div>
+        <div class="podium-step place-${r.place}">${r.place}</div>
+      </div>`).join('');
+    const rest = rows.slice(3);
+    $('#podium-rest').hidden = !rest.length;
+    $('#podium-rest').innerHTML = rest.map(r => `
+      <li style="--team:${r.team.color}"><b>${r.place}.º</b>${avatarHTML(r.team.avatar)}
+        <strong>${esc(r.team.name)}</strong><span>${rings(r.team)}</span></li>`).join('');
+    openModal('#modal-podium');
+    launchConfetti('#podium-confetti');
+    fanfare();
+  }
+
+  function launchConfetti(sel) {
+    const box = $(sel);
     box.innerHTML = '';
     const colors = [...C.TEAM_COLORS, ...state.themes.map(t => themeInfo(t).color)];
     for (let i = 0; i < 120; i++) {
@@ -1299,7 +1338,9 @@
 
   function bindModals() {
     $('#btn-victory-continue').addEventListener('click', () => closeModal('#modal-victory'));
-    $('#btn-victory-new').addEventListener('click', () => { closeModal('#modal-victory'); clearSave(); showSetup(); });
+    $('#btn-victory-finish').addEventListener('click', () => { closeModal('#modal-victory'); showPodium(); });
+    $('#btn-podium-continue').addEventListener('click', () => closeModal('#modal-podium'));
+    $('#btn-podium-new').addEventListener('click', () => { closeModal('#modal-podium'); clearSave(); showSetup(); });
   }
 
   function offerResume(saved) {
