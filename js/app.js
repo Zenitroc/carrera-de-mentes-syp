@@ -1,5 +1,5 @@
 /* =========================================================
-   CARRERA DE MENTES — lógica del juego
+   POLLI-RUN — lógica del juego
    Dinámica: pista en zigzag que da la vuelta. Cada casilla es de una
    temática. Al caer eligen pregunta fácil o difícil de esa temática:
    difícil bien = anillo; 3 fáciles bien = anillo. Si aciertan siguen

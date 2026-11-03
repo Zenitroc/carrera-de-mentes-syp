@@ -1,4 +1,4 @@
-# Carrera de Mentes — guía rápida
+# Polli-Run — guía rápida
 
 ## Cómo abrirlo
 Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
