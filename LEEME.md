@@ -14,7 +14,7 @@ Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
     con **3 fáciles de la misma temática** ganan el anillo.
   - **Siempre que responden bien siguen tirando** (en el panel aparece "Sigue tirando").
     Si responden mal, pasa el turno.
-  - Las preguntas acertadas **no vuelven a salir**; las falladas sí.
+  - Las preguntas acertadas **no vuelven a salir**.
 - **Robo de anillos:** si caen en la misma casilla que otro equipo y responden bien,
   pueden robarle el anillo que quieran (de los que no tienen). El otro se queda sin él.
 - **Corral (cárcel):** quien cae ahí no responde y **pierde el próximo turno**
@@ -28,7 +28,8 @@ Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
   podio de ese momento: gana quien tiene más anillos; si empatan, quien los completó
   antes y después quien tiene más fáciles acertadas.
 - La **Salida**: si caen justo ahí, eligen de qué temática es la pregunta.
-- Si se agotan las preguntas de una temática, se vuelven a habilitar todas.
+- Si se agotan las preguntas de una temática, se repiten las **falladas o salteadas con el comodín**.
+  Si se acertaron todas, se vuelven a habilitar todas.
 
 ## Estructura
 
@@ -53,11 +54,12 @@ Queda guardado en el navegador: no hay que cargarlo cada clase.
 
 **Formato** (Excel o Google Sheets → "Guardar como CSV"):
 
-| tematica | pregunta | respuesta | opciones | opcion_correcta | dificultad |
-|---|---|---|---|---|---|
-| Historia | ¿En qué año llegó Colón a América? | 1492 | 1492\|1810\|1516\|1776 | A | facil |
-| Ciencia | ¿Cuántos huesos tiene el cuerpo humano? | 206 | | | dificil |
-| Ciencia | El Sol es una estrella. | Verdadero | Verdadero\|Falso | A | facil |
+| tematica | pregunta | respuesta | opciones | opcion_correcta | dificultad | id_imagen |
+|---|---|---|---|---|---|---|
+| Historia | ¿En qué año llegó Colón a América? | 1492 | 1492\|1810\|1516\|1776 | A | facil | |
+| Ciencia | ¿Cuántos huesos tiene el cuerpo humano? | 206 | | | dificil | |
+| Ciencia | El Sol es una estrella. | Verdadero | Verdadero\|Falso | A | facil | |
+| Geografía | ¿De qué país es esta bandera? | Italia | Italia\|Irlanda\|México | A | facil | bandera-1 |
 
 - `opcion_correcta`: cuál de las opciones es la buena. Puede ser la letra (`B`),
   el número (`2` = la segunda) o el texto de la opción. El comodín
@@ -65,6 +67,9 @@ Queda guardado en el navegador: no hay que cargarlo cada clase.
   el comodín queda desactivado para esa pregunta.
 - `dificultad`: `facil` o `dificil`. Si está vacía, la pregunta sirve para las dos.
 - **Verdadero/Falso**: poné `Verdadero|Falso` como opciones.
+- `id_imagen` (opcional): para las preguntas con imagen. Poné el archivo en `assets/preguntas/`
+  con ese nombre (`bandera-1.jpg`). La extensión no hace falta si es jpg, jpeg, png, webp o gif.
+  Si falta el archivo, la pregunta sale con un aviso en rojo.
 
 - **Las temáticas del tablero = las que aparecen en la columna `tematica`**, en el orden
   en que aparecen por primera vez. Se usan hasta `MAX_THEMES` (6 por defecto).
@@ -93,8 +98,10 @@ Queda guardado en el navegador: no hay que cargarlo cada clase.
 | `BOARD_AREA` | Zona del fondo donde va la pista (% de la imagen). Ajustar si cambiás el fondo. |
 | `STEP_MS` | Velocidad del saltito por casilla. |
 
-Las temáticas se reparten en las casillas **mezcladas por bloques**: hay de todas
-a lo largo de la vuelta y nunca dos iguales seguidas. El reparto cambia en cada partida
+Cada temática tiene casillas **en proporción a sus preguntas** en el CSV (el doble de
+preguntas, el doble de casillas; como mínimo 1). Se reparten mezcladas a lo largo de la
+vuelta. Dos iguales seguidas solo aparecen si es inevitable (una temática con cerca de la
+mitad de las casillas o más), y las menos posibles. El reparto cambia en cada partida
 nueva y se mantiene si se recarga.
 
 ## Lo visual que hacés vos

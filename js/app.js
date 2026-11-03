@@ -46,7 +46,8 @@
        teams:      [{ id, name, avatar, color, pos, rings:['Historia', ...],
                       easy:{ historia: 2 }  fáciles acertadas por temática (sin anillo aún)
                       jokers:{ eliminar: 1, cambiar: 1 }, jail: turnos que pierde }]
-       turn, bonus (sigue tirando), winners:[teamId], used:[questionId respondidas bien], lastQ
+       turn, bonus (sigue tirando), winners:[teamId], used:[questionId respondidas bien],
+       retry:[questionId falladas o salteadas con el comodín], lastQ
      } */
   let state = null;
   let bank = { name: '', questions: [] }; // banco de preguntas cargado
@@ -83,6 +84,7 @@
     s.turn = Math.max(0, Math.min(s.teams.length - 1, s.turn | 0));
     s.winners = Array.isArray(s.winners) ? s.winners : [];
     s.used = Array.isArray(s.used) ? s.used : [];
+    s.retry = Array.isArray(s.retry) ? s.retry : [];
     return s;
   }
 
@@ -158,7 +160,7 @@
 
   /* =========================================================
      BANCO DE PREGUNTAS (CSV)
-     Columnas: tematica ; pregunta ; respuesta ; opciones ; opcion_correcta ; dificultad
+     Columnas: tematica ; pregunta ; respuesta ; opciones ; opcion_correcta ; dificultad ; id_imagen
        - separador , ; o tabulación (se detecta solo)
        - dificultad: facil / dificil (opcional; vacía = sirve para las dos)
        - opciones: opcional, separadas por |   (ej: París|Roma|Lima)
@@ -166,6 +168,8 @@
          Verdadero|Falso = pregunta de verdadero o falso
        - opcion_correcta: texto, letra (B) o número (2) de la opción correcta.
          El comodín "eliminar opciones" nunca saca esa.
+       - id_imagen: opcional, nombre de la imagen en CONFIG.QUESTION_IMAGES
+         (con o sin extensión: 12, mapa o mapa.png).
      ========================================================= */
   function parseLevel(s) {
     const v = norm(s);
@@ -249,10 +253,11 @@
     let iA = find('respuesta', 'respuestas', 'respuesta correcta');
     let iLevel = find('dificultad', 'nivel');
     let iRight = find('opcion_correcta', 'opcion correcta', 'opcioncorrecta', 'correcta');
+    let iImg = find('id_imagen', 'id imagen', 'idimagen', 'imagen');
     let iOpts = head.map((h, i) => (h.startsWith('opcion') && i !== iRight ? i : -1)).filter(i => i >= 0);
     let data = rows.slice(1);
-    if (iQ < 0) { // sin encabezado: se asume el orden tematica, pregunta, respuesta, opciones, opcion_correcta, dificultad
-      iTheme = 0; iQ = 1; iA = 2; iOpts = [3]; iRight = 4; iLevel = 5; data = rows;
+    if (iQ < 0) { // sin encabezado: se asume el orden tematica, pregunta, respuesta, opciones, opcion_correcta, dificultad, id_imagen
+      iTheme = 0; iQ = 1; iA = 2; iOpts = [3]; iRight = 4; iLevel = 5; iImg = 6; data = rows;
     }
     if (iTheme < 0) throw new Error('Falta la columna "tematica".');
 
@@ -277,6 +282,7 @@
         options,
         correct: correctIndex(options, iRight >= 0 ? r[iRight] : '', a),
         level: iLevel >= 0 ? parseLevel(r[iLevel]) : '',
+        img: iImg >= 0 ? (r[iImg] || '').trim() : '',
       });
     });
     if (!questions.length) throw new Error('No se encontró ninguna pregunta. Revisá las columnas "tematica" y "pregunta".');
@@ -307,6 +313,7 @@
     saveBank();
     if (state) {
       state.used = [];
+      state.retry = [];
       save();
       const missing = state.themes.filter(t => !bank.questions.some(q => norm(q.theme) === norm(t)));
       if (missing.length) toast(`El nuevo banco no tiene preguntas de: ${missing.join(', ')}`, 3500);
@@ -369,11 +376,11 @@
   }
 
   function downloadTemplate() {
-    const csv = '﻿tematica;pregunta;respuesta;opciones;opcion_correcta;dificultad\n' +
-      'Historia;¿En qué año llegó Colón a América?;1492;1492|1810|1516|1776;A;facil\n' +
-      'Historia;¿En qué año cayó el Muro de Berlín?;1989;1961|1989|1991|1975;B;dificil\n' +
-      'Ciencia;El Sol es una estrella.;Verdadero;Verdadero|Falso;A;facil\n' +
-      'Ciencia;¿Cuántos huesos tiene el cuerpo humano adulto?;206;;;dificil\n';
+    const csv = '﻿tematica;pregunta;respuesta;opciones;opcion_correcta;dificultad;id_imagen\n' +
+      'Historia;¿En qué año llegó Colón a América?;1492;1492|1810|1516|1776;A;facil;\n' +
+      'Historia;¿En qué año cayó el Muro de Berlín?;1989;1961|1989|1991|1975;B;dificil;\n' +
+      'Ciencia;El Sol es una estrella.;Verdadero;Verdadero|Falso;A;facil;\n' +
+      'Ciencia;¿Cuántos huesos tiene el cuerpo humano adulto?;206;;;dificil;\n';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = 'plantilla-preguntas.csv';
@@ -389,15 +396,21 @@
     return pool.length ? pool : all;
   }
 
-  // Pregunta al azar entre las que todavía no se respondieron bien.
-  // Si se agotaron, se vuelven a habilitar todas. `skip` = id a evitar
+  // Pregunta al azar entre las que todavía no salieron. Si se agotaron,
+  // se repiten las falladas o salteadas con el comodín. Si tampoco quedan
+  // (se acertaron todas), se vuelven a habilitar todas. `skip` = id a evitar
   // (la pregunta que se está cambiando con el comodín).
   function pickQuestion(theme, level, skip = null) {
     const pool = questionPool(theme, level);
     if (!pool.length) return null;
-    let fresh = pool.filter(q => !state.used.includes(q.id) && q.id !== skip);
+    let fresh = pool.filter(q => !state.used.includes(q.id) && !state.retry.includes(q.id) && q.id !== skip);
+    if (!fresh.length) {
+      fresh = pool.filter(q => state.retry.includes(q.id) && q.id !== skip);
+      if (fresh.length) toast(`Ya salieron todas las preguntas de ${theme}: se repiten las falladas o salteadas`, 2500);
+    }
     if (!fresh.length) {
       state.used = state.used.filter(id => !pool.some(q => q.id === id));
+      state.retry = state.retry.filter(id => !pool.some(q => q.id === id));
       fresh = pool.filter(q => q.id !== skip);
       if (!fresh.length) fresh = pool;
       toast(`Se usaron todas las preguntas de ${theme}: vuelven a salir`, 2500);
@@ -511,24 +524,63 @@
     return out;
   }
 
-  // Reparte las temáticas en las casillas: en bloques mezclados para que
-  // haya de todas a lo largo de la vuelta y nunca dos iguales seguidas.
+  // Cuántas casillas le tocan a cada temática: proporcional a sus preguntas
+  // en el banco, con al menos 1 (hace falta para poder ganar ese anillo).
+  function themeCellCounts(themes, slots) {
+    const sizes = themes.map(t => bank.questions.filter(q => norm(q.theme) === norm(t)).length);
+    const total = sizes.reduce((a, b) => a + b, 0) || 1;
+    const counts = themes.map(() => 1);
+    for (let left = slots - themes.length; left > 0; left--) {
+      // la casilla siguiente va a la temática más lejos de su proporción
+      const gap = themes.map((_, i) => slots * sizes[i] / total - counts[i]);
+      const max = Math.max(...gap);
+      const tied = themes.map((_, i) => i).filter(i => gap[i] > max - 1e-9);
+      counts[tied[Math.floor(Math.random() * tied.length)]]++;
+    }
+    return counts;
+  }
+
+  // Mínimo de pares iguales seguidos que va a tener una temática con `count`
+  // casillas por ubicar desde `from` hasta el final (el corral corta la
+  // seguidilla). `afterSame`: la casilla anterior ya es de esa temática.
+  function minPairs(count, from, jails, afterSame) {
+    let cap = 0, slots = 0, stretches = 0, free = !afterSame, inStretch = afterSame;
+    for (let i = from; i < TOTAL; i++) {
+      if (jails.has(i)) { free = true; inStretch = false; continue; }
+      slots++;
+      if (!inStretch) { stretches++; inStretch = true; }
+      if (free) { cap++; free = false; } else free = true;
+    }
+    return Math.max(0, count - cap, 2 * count - slots - stretches);
+  }
+
+  // Reparte las temáticas en las casillas, en proporción a sus preguntas.
+  // Casilla por casilla elige la opción que deja menos pares iguales seguidos
+  // (ninguno, salvo que una temática tenga demasiadas casillas para evitarlo);
+  // entre las empatadas, la más atrasada en su reparto parejo con algo de azar.
   function buildCellThemes(themes) {
     const out = [null]; // casilla 0 = Salida
     const jails = new Set(jailIndexes());
-    let block = [], prev = null;
+    const left = themeCellCounts(themes, TOTAL - 1 - jails.size);
+    // Con pares inevitables, casi sin azar: así quedan salteados y no todos juntos
+    const jitter = Math.max(...left.map(n => minPairs(n, 1, jails, false))) > 0 ? 0.1 : 1;
+    const dues = left.map(n => Array.from({ length: n }, (_, k) => (k + 0.5 + (Math.random() - 0.5) * jitter) / n));
+    let prev = -1;
     for (let i = 1; i < TOTAL; i++) {
-      if (jails.has(i)) { out.push(JAIL); continue; }
-      if (!block.length) {
-        block = [...themes];
-        for (let a = block.length - 1; a > 0; a--) {
-          const b = Math.floor(Math.random() * (a + 1));
-          [block[a], block[b]] = [block[b], block[a]];
-        }
-        if (block.length > 1 && block[0] === prev) [block[0], block[1]] = [block[1], block[0]];
-      }
-      prev = block.shift();
-      out.push(prev);
+      if (jails.has(i)) { out.push(JAIL); prev = -1; continue; }
+      let best = -1, bestCost = Infinity;
+      themes.forEach((_, c) => {
+        if (!left[c]) return;
+        left[c]--;
+        const excess = Math.max(...themes.map((_, t) => minPairs(left[t], i + 1, jails, t === c)));
+        left[c]++;
+        const cost = (c === prev ? 1 : 0) + excess;
+        if (cost < bestCost || (cost === bestCost && dues[c][0] < dues[best][0])) { best = c; bestCost = cost; }
+      });
+      dues[best].shift();
+      left[best]--;
+      prev = best;
+      out.push(themes[best]);
     }
     return out;
   }
@@ -560,6 +612,7 @@
       bonus: false,
       winners: [],
       used: [],
+      retry: [],
       lastQ: null,
     };
     history = [];
@@ -969,11 +1022,15 @@
 
     const { ok, q } = await askQuestion(team, theme, level);
     if (!ok) {
+      if (q && !state.retry.includes(q.id)) state.retry.push(q.id); // fallada: se repite al agotarse las demás
       sadTone();
       save();
       return 'fail';
     }
-    if (q) state.used.push(q.id); // respondida bien: no vuelve a salir
+    if (q) {
+      state.used.push(q.id); // respondida bien: no vuelve a salir
+      state.retry = state.retry.filter(id => id !== q.id);
+    }
 
     if (owned) {
       [660, 880, 1100].forEach((f, i) => setTimeout(() => blip(f, 0.1, 'sine'), i * 90));
@@ -992,6 +1049,26 @@
     checkWin(team);
     save();
     return 'ok';
+  }
+
+  // Muestra la imagen de la pregunta, si tiene. Si el id viene sin extensión
+  // prueba las comunes; si no aparece, avisa (la pregunta puede depender de ella).
+  function showQuestionImage(q) {
+    const box = $('#q-image');
+    box.innerHTML = '';
+    box.hidden = !(q && q.img);
+    if (box.hidden) return;
+    const base = C.QUESTION_IMAGES + encodeURIComponent(q.img);
+    const tries = [...(q.img.includes('.') ? [base] : []), ...['jpg', 'jpeg', 'png', 'webp', 'gif'].map(e => `${base}.${e}`)];
+    const img = new Image();
+    img.alt = 'Imagen de la pregunta';
+    img.onerror = () => {
+      if (img.parentNode !== box) return; // ya se cambió de pregunta
+      if (tries.length) img.src = tries.shift();
+      else box.textContent = `No se encontró la imagen "${q.img}" en ${C.QUESTION_IMAGES}`;
+    };
+    box.appendChild(img);
+    img.src = tries.shift();
   }
 
   // Pregunta (con opciones si las tiene), comodines y Correcto / Incorrecto.
@@ -1040,13 +1117,17 @@
       btnSwap.onclick = () => {
         if (btnSwap.disabled) return;
         team.jokers.cambiar--;
-        q = pickQuestion(themeName, level, q.id);
+        const skipped = q.id;
+        q = pickQuestion(themeName, level, skipped);
+        if (!state.retry.includes(skipped)) state.retry.push(skipped); // salteada: se repite al agotarse las demás
         removed = [];
+        showQuestionImage(q);
         blip(500, 0.12, 'square');
         save(); render(); renderPanel();
       };
 
       render();
+      showQuestionImage(q);
       $('#question-card').style.setProperty('--theme', theme.color);
       openModal('#modal-question');
       const done = ok => {

@@ -38,6 +38,8 @@ const CONFIG = {
   //   eliminar: saca opciones incorrectas (no sirve en Verdadero/Falso)
   //   cambiar:  cambia la pregunta por otra de la misma temática y dificultad
   JOKERS: { eliminar: 1, cambiar: 1 },
+  // Carpeta de las imágenes de las preguntas (columna id_imagen del CSV).
+  QUESTION_IMAGES: 'assets/preguntas/',
 
   // ---- Temáticas ----
   // Salen del CSV (columna "tematica"). El tablero usa las primeras
