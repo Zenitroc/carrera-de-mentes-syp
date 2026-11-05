@@ -11,7 +11,7 @@ const CONFIG = {
   //   9 col × 4 filas → 40 casillas    8 × 4 → 36    10 × 4 → 44    7 × 6 → 48
   COLUMNS: 9,
   LANES: 4,
-  BOARD_BACKGROUND: 'assets/tablero/fondo.jpg', // null = sin imagen
+  BOARD_BACKGROUND: 'assets/tablero/fondo.jpg?v=2', // null = sin imagen
 
   // Zona libre del fondo donde se dibuja la pista, en % del alto/ancho
   // de la imagen. Si cambiás de fondo, ajustá estos 4 números.
@@ -39,7 +39,7 @@ const CONFIG = {
   //   cambiar:  cambia la pregunta por otra de la misma temática y dificultad
   JOKERS: { eliminar: 1, cambiar: 1 },
   // Carpeta de las imágenes de las preguntas (columna id_imagen del CSV).
-  QUESTION_IMAGES: 'assets/preguntas/',
+  QUESTION_IMAGES: 'assets/imagenes/',
 
   // ---- Temáticas ----
   // Salen del CSV (columna "tematica"). El tablero usa las primeras

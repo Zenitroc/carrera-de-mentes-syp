@@ -29,7 +29,9 @@ Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
   antes y después quien tiene más fáciles acertadas.
 - La **Salida**: si caen justo ahí, eligen de qué temática es la pregunta.
 - Si se agotan las preguntas de una temática, se repiten las **falladas o salteadas con el comodín**.
-  Si se acertaron todas, se vuelven a habilitar todas.
+- Si se **acertaron todas** las fáciles o las difíciles de una temática, esa dificultad queda
+  desactivada: un cartel avisa que elijan la otra o pierdan el turno. Si no queda ninguna de las
+  dos, pierden el turno (y en la Salida esa temática no se puede elegir).
 
 ## Estructura
 
@@ -67,7 +69,7 @@ Queda guardado en el navegador: no hay que cargarlo cada clase.
   el comodín queda desactivado para esa pregunta.
 - `dificultad`: `facil` o `dificil`. Si está vacía, la pregunta sirve para las dos.
 - **Verdadero/Falso**: poné `Verdadero|Falso` como opciones.
-- `id_imagen` (opcional): para las preguntas con imagen. Poné el archivo en `assets/preguntas/`
+- `id_imagen` (opcional): para las preguntas con imagen. Poné el archivo en `assets/imagenes/`
   con ese nombre (`bandera-1.jpg`). La extensión no hace falta si es jpg, jpeg, png, webp o gif.
   Si falta el archivo, la pregunta sale con un aviso en rojo.
 

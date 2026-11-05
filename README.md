@@ -15,7 +15,7 @@ js/preguntas-ejemplo.js   ← copia embebida del CSV de ejemplo (botón "Usar pr
 preguntas/ejemplo.csv     ← banco de ejemplo para usar de modelo
 assets/
   avatars/                ← tus personajes (pollito.png, ...)
-  tablero/fondo.jpg       ← fondo del tablero (el de "Carrera de Mentes")
+  tablero/fondo.jpg       ← fondo del tablero (el de "Polli-Run")
   anillos/                ← imagen del anillo (opcional)
 ```
 

@@ -396,10 +396,17 @@
     return pool.length ? pool : all;
   }
 
+  // ¿Queda alguna pregunta sin acertar de esta temática y dificultad?
+  // (sin preguntas en el banco cuenta como sí: la hace el moderador)
+  function questionsLeft(theme, level) {
+    const pool = questionPool(theme, level);
+    return !pool.length || pool.some(q => !state.used.includes(q.id));
+  }
+
   // Pregunta al azar entre las que todavía no salieron. Si se agotaron,
-  // se repiten las falladas o salteadas con el comodín. Si tampoco quedan
-  // (se acertaron todas), se vuelven a habilitar todas. `skip` = id a evitar
-  // (la pregunta que se está cambiando con el comodín).
+  // se repiten las falladas o salteadas con el comodín. Las acertadas no
+  // vuelven: si no queda ninguna, esa dificultad no se puede elegir (ver
+  // runQuestion). `skip` = id a evitar (la que se cambia con el comodín).
   function pickQuestion(theme, level, skip = null) {
     const pool = questionPool(theme, level);
     if (!pool.length) return null;
@@ -408,13 +415,7 @@
       fresh = pool.filter(q => state.retry.includes(q.id) && q.id !== skip);
       if (fresh.length) toast(`Ya salieron todas las preguntas de ${theme}: se repiten las falladas o salteadas`, 2500);
     }
-    if (!fresh.length) {
-      state.used = state.used.filter(id => !pool.some(q => q.id === id));
-      state.retry = state.retry.filter(id => !pool.some(q => q.id === id));
-      fresh = pool.filter(q => q.id !== skip);
-      if (!fresh.length) fresh = pool;
-      toast(`Se usaron todas las preguntas de ${theme}: vuelven a salir`, 2500);
-    }
+    if (!fresh.length) return null;
     // evita repetir justo la última pregunta (si hay otra opción)
     if (fresh.length > 1) fresh = fresh.filter(q => q.id !== state.lastQ);
     const q = fresh[Math.floor(Math.random() * fresh.length)];
@@ -898,7 +899,7 @@
     if (!theme) { // Salida
       if (!C.START_IS_WILD) return;
       toast('Salida: elijan la temática');
-      theme = await chooseTheme(team, '¿De qué temática quieren la pregunta?');
+      theme = await chooseTheme(team, '¿De qué temática quieren la pregunta?', false, true);
       if (!theme) return;
     }
     return runQuestion(team, theme);
@@ -1001,7 +1002,8 @@
      PREGUNTAS
      ========================================================= */
   // Elige dificultad, pregunta y aplica el resultado.
-  // Devuelve 'ok' (respondió bien) o 'fail'.
+  // Devuelve 'ok' (respondió bien), 'fail' o 'pass' (perdió el turno porque
+  // no quedaban preguntas de la dificultad que le servía).
   async function runQuestion(team, theme) {
     const info = themeInfo(theme);
     const owned = hasRing(team, theme);
@@ -1011,14 +1013,20 @@
       owned ? 'Ya tienen este anillo: si aciertan, siguen tirando.' : '',
       rivals.length ? `Si aciertan pueden robarle un anillo a ${rivals.map(o => esc(o.name)).join(' o ')}.` : '',
     ].filter(Boolean).map(s => `<br><small>${s}</small>`).join('');
+    const easyLeft = questionsLeft(theme, 'facil'), hardLeft = questionsLeft(theme, 'dificil');
+    const noneLeft = !easyLeft && !hardLeft;
+    const warning = noneLeft ? `Ya no hay más preguntas de ${esc(info.name)}: pierden el turno.`
+      : !easyLeft ? `Ya no hay más preguntas fáciles de ${esc(info.name)}: elijan difícil o pierdan el turno.`
+      : !hardLeft ? `Ya no hay más preguntas difíciles de ${esc(info.name)}: elijan fácil o pierdan el turno.` : '';
     const level = await pickOption(
       info.name,
-      `<strong>${esc(team.name)}</strong>: ¿pregunta fácil o difícil?${notes}`,
+      `<strong>${esc(team.name)}</strong>${noneLeft ? '' : ': ¿pregunta fácil o difícil?'}${warning ? `<br><strong>${warning}</strong>` : ''}${noneLeft ? '' : notes}`,
       [
-        { value: 'facil', color: 'var(--ok)', html: `Fácil<small>${owned ? 'sigue tirando' : `${C.EASY_FOR_RING} fáciles = anillo (llevan ${k})`}</small>` },
-        { value: 'dificil', color: 'var(--danger)', html: `Difícil<small>${owned ? 'sigue tirando' : 'anillo directo'}</small>` },
+        { value: 'facil', color: 'var(--ok)', disabled: !easyLeft, html: `Fácil<small>${!easyLeft ? 'no quedan' : owned ? 'sigue tirando' : `${C.EASY_FOR_RING} fáciles = anillo (llevan ${k})`}</small>` },
+        { value: 'dificil', color: 'var(--danger)', disabled: !hardLeft, html: `Difícil<small>${!hardLeft ? 'no quedan' : owned ? 'sigue tirando' : 'anillo directo'}</small>` },
       ],
-      null, info.color);
+      warning ? 'Perder el turno' : null, info.color);
+    if (!level) return 'pass';
 
     const { ok, q } = await askQuestion(team, theme, level);
     if (!ok) {
@@ -1051,6 +1059,37 @@
     return 'ok';
   }
 
+  // Achica la ventana de pregunta hasta que entre en la pantalla. Las preguntas
+  // cortas quedan igual. Cada paso = [letra mínima en px, alto de imagen, escala
+  // de opciones]: baja la letra de la pregunta y, si no alcanza, también la
+  // imagen y las opciones. Si no entra ni con el último paso, queda el scroll.
+  const FIT_STEPS = [[24, '42vh', 1], [22, '36vh', 0.85], [20, '30vh', 0.75], [18, '24vh', 0.7], [16, '20vh', 0.65], [14, '15vh', 0.6], [12, '10vh', 0.55]];
+  function fitQuestion() {
+    if ($('#modal-question').hidden) return;
+    const card = $('#question-card');
+    ['--q-size', '--q-img-max', '--q-opt-scale'].forEach(v => card.style.removeProperty(v));
+    const room = window.innerHeight - 40; // márgenes de la ventana y sombra
+    const fits = () => card.offsetHeight <= room;
+    if (fits()) return;
+    const setSize = px => card.style.setProperty('--q-size', `${px}px`);
+    const base = parseFloat(getComputedStyle($('#q-text')).fontSize);
+    for (const [min, imgMax, optScale] of FIT_STEPS) {
+      card.style.setProperty('--q-img-max', imgMax);
+      card.style.setProperty('--q-opt-scale', optScale);
+      setSize(min);
+      if (!fits()) continue;
+      let lo = min, hi = base;
+      while (hi - lo > 0.5) {
+        const mid = (lo + hi) / 2;
+        setSize(mid);
+        if (fits()) lo = mid; else hi = mid;
+      }
+      setSize(lo);
+      return;
+    }
+  }
+  window.addEventListener('resize', fitQuestion);
+
   // Muestra la imagen de la pregunta, si tiene. Si el id viene sin extensión
   // prueba las comunes; si no aparece, avisa (la pregunta puede depender de ella).
   function showQuestionImage(q) {
@@ -1062,10 +1101,11 @@
     const tries = [...(q.img.includes('.') ? [base] : []), ...['jpg', 'jpeg', 'png', 'webp', 'gif'].map(e => `${base}.${e}`)];
     const img = new Image();
     img.alt = 'Imagen de la pregunta';
+    img.onload = fitQuestion;
     img.onerror = () => {
       if (img.parentNode !== box) return; // ya se cambió de pregunta
       if (tries.length) img.src = tries.shift();
-      else box.textContent = `No se encontró la imagen "${q.img}" en ${C.QUESTION_IMAGES}`;
+      else { box.textContent = `No se encontró la imagen "${q.img}" en ${C.QUESTION_IMAGES}`; fitQuestion(); }
     };
     box.appendChild(img);
     img.src = tries.shift();
@@ -1102,7 +1142,8 @@
         btnRemove.disabled = !(left.eliminar > 0) || removed.length > 0 || !canRemoveOptions(q);
         btnRemove.title = q && isTF(q) ? 'No se puede en Verdadero/Falso' : '';
         btnSwap.textContent = `Cambiar pregunta (${left.cambiar | 0})`;
-        btnSwap.disabled = !(left.cambiar > 0) || !q || questionPool(themeName, level).length < 2;
+        btnSwap.disabled = !(left.cambiar > 0) || !q
+          || !questionPool(themeName, level).some(x => x.id !== q.id && !state.used.includes(x.id));
       };
 
       btnRemove.onclick = () => {
@@ -1123,13 +1164,14 @@
         removed = [];
         showQuestionImage(q);
         blip(500, 0.12, 'square');
-        save(); render(); renderPanel();
+        save(); render(); renderPanel(); fitQuestion();
       };
 
       render();
       showQuestionImage(q);
       $('#question-card').style.setProperty('--theme', theme.color);
       openModal('#modal-question');
+      fitQuestion();
       const done = ok => {
         closeModal('#modal-question');
         $('#btn-q-ok').onclick = $('#btn-q-fail').onclick = btnRemove.onclick = btnSwap.onclick = null;
@@ -1186,13 +1228,14 @@
 
   // Selector de temática (Salida o anillo manual).
   // Las temáticas cuyo anillo ya tiene el equipo se muestran marcadas.
-  function chooseTheme(team, title = '¿Anillo de qué temática?', onlyMissing = false) {
+  function chooseTheme(team, title = '¿Anillo de qué temática?', onlyMissing = false, onlyWithQuestions = false) {
     return pickOption(title, `Equipo: <strong>${esc(team.name)}</strong>`, state.themes.map(name => {
       const t = themeInfo(name);
       const owned = hasRing(team, name);
+      const empty = onlyWithQuestions && !questionsLeft(name, 'facil') && !questionsLeft(name, 'dificil');
       return {
-        value: t.name, color: t.color, cls: owned ? 'owned' : '', disabled: owned && onlyMissing,
-        html: `${esc(t.name)}${owned ? '<small>ya lo tienen</small>' : ''}`,
+        value: t.name, color: t.color, cls: owned ? 'owned' : '', disabled: (owned && onlyMissing) || empty,
+        html: `${esc(t.name)}${empty ? '<small>sin preguntas</small>' : owned ? '<small>ya lo tienen</small>' : ''}`,
       };
     }));
   }
@@ -1289,8 +1332,9 @@
       if (state.cellThemes[currentTeam().pos] === JAIL) { toast('Están en el corral: no hay pregunta'); return; }
       pushHistory();
       busy = true; renderPanel();
-      await resolveCell(currentTeam());
-      busy = false; renderPanel();
+      const result = await resolveCell(currentTeam());
+      if (result === 'pass') { nextTurn(); dice = null; save(); }
+      busy = false; renderPanel(result === 'pass');
     });
     $('#btn-skip').addEventListener('click', () => {
       if (busy) return;
