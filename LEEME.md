@@ -12,14 +12,15 @@ Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
   - **Difícil correcta** → ganan el **anillo de esa temática**.
   - **Fácil correcta** → suman 1 de 3 (puntitos en la lista de equipos);
     con **3 fáciles de la misma temática** ganan el anillo.
-  - **Siempre que responden bien siguen tirando** (en el panel aparece "Sigue tirando").
-    Si responden mal, pasa el turno.
+  - **Si responden bien siguen tirando** (en el panel aparece "Sigue tirando"), salvo que
+    ganen o roben un anillo: ahí termina su turno. Si responden mal, también pasa el turno.
   - Las preguntas acertadas **no vuelven a salir**.
-- **Robo de anillos:** si caen en la misma casilla que otro equipo y responden bien,
+- **Robo de anillos:** si caen en la misma casilla que otro equipo y responden bien una **difícil**,
   pueden robarle el anillo que quieran (de los que no tienen). El otro se queda sin él.
 - **Corral (cárcel):** quien cae ahí no responde y **pierde el próximo turno**
   (su ficha se ve gris y en la lista dice "En el corral").
-- **Comodines:** cada equipo arranca con 2, que se usan dentro de la pregunta:
+- **Comodines:** cada equipo arranca con 2, que se usan dentro de la pregunta. Al pasar o caer
+  en la **Salida** se reinician (vuelven a la cantidad inicial, no se acumulan):
   - **Eliminar opciones**: tacha opciones incorrectas y quedan 2 (no se puede en
     Verdadero/Falso ni en preguntas sin opciones).
   - **Cambiar pregunta**: sale otra de la misma temática y dificultad.
@@ -91,7 +92,7 @@ Queda guardado en el navegador: no hay que cargarlo cada clase.
 | `COLUMNS`, `LANES` | Tamaño de la viborita: LANES filas (par) de COLUMNS casillas. **9×4 = 40** (por defecto), 8×4 = 36, 10×4 = 44, 7×6 = 48. |
 | `JAIL_CELLS`, `JAIL_TURNS` | Cuántas casillas de corral hay y cuántos turnos se pierden. |
 | `JAIL_IMAGE` | Foto del corral (`assets/tablero/corral.jpg`). Si no está, se ve un corral dibujado. |
-| `CORRECT_KEEPS_TURN` | `true`: si responden bien siguen tirando. |
+| `CORRECT_KEEPS_TURN` | `true`: si responden bien siguen tirando (salvo que ganen o roben un anillo). |
 | `EASY_FOR_RING` | Cuántas fáciles de una temática hacen falta para el anillo (3). |
 | `JOKERS` | Comodines iniciales de cada equipo: `{ eliminar: 1, cambiar: 1 }`. |
 | `MAX_THEMES` / `MIN_THEMES` | Cuántas temáticas del CSV se usan como máximo / mínimo. |

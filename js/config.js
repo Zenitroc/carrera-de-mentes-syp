@@ -23,13 +23,13 @@ const CONFIG = {
   // ---- Corral (cárcel) ----
   // Casillas de corral repartidas por la pista. Quien cae ahí no responde
   // nada y pierde JAIL_TURNS turno(s).
-  JAIL_CELLS: 1,
+  JAIL_CELLS: 3,
   JAIL_TURNS: 1,
   // Foto de la casilla. Si no existe, se dibuja un corral de madera.
   JAIL_IMAGE: 'assets/tablero/corral.jpg',
 
   // ---- Reglas ----
-  // Si responden bien siguen tirando el dado (hasta que fallen).
+  // Si responden bien siguen tirando el dado, hasta que fallen o ganen un anillo.
   CORRECT_KEEPS_TURN: true,
   // Pregunta difícil bien respondida = anillo directo.
   // Preguntas fáciles: hacen falta EASY_FOR_RING de la misma temática.

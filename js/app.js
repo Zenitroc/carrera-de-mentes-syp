@@ -380,7 +380,8 @@
       'Historia;¿En qué año llegó Colón a América?;1492;1492|1810|1516|1776;A;facil;\n' +
       'Historia;¿En qué año cayó el Muro de Berlín?;1989;1961|1989|1991|1975;B;dificil;\n' +
       'Ciencia;El Sol es una estrella.;Verdadero;Verdadero|Falso;A;facil;\n' +
-      'Ciencia;¿Cuántos huesos tiene el cuerpo humano adulto?;206;;;dificil;\n';
+      'Ciencia;¿Cuántos huesos tiene el cuerpo humano adulto?;206;;;dificil;\n' +
+      'Ciencia;¿Qué se ve en la imagen?;Respuesta A;Respuesta A|Respuesta B|Respuesta C;A;facil;CUR1\n';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = 'plantilla-preguntas.csv';
@@ -797,6 +798,11 @@
     const el = tokens.get(team.id);
     for (let s = 0; s < steps; s++) {
       team.pos = (team.pos + 1) % TOTAL;
+      if (team.pos === 0) { // pasar o caer en la Salida reinicia los comodines
+        team.jokers = { ...C.JOKERS };
+        toast(`${team.name} pasó por la Salida: comodines renovados`, 2500);
+        renderPanel();
+      }
       hop(el);
       layoutTokens(true, team.id);
       blip(team.pos === 0 ? 990 : 520 + team.pos * 8, 0.07);
@@ -925,7 +931,7 @@
     renderPanel(true);
   }
 
-  // Si respondió bien sigue tirando; si no, pasa el turno
+  // Si respondió bien sin ganar un anillo sigue tirando; si no, pasa el turno
   function afterTurn(team, result) {
     if (result === 'ok' && C.CORRECT_KEEPS_TURN) {
       state.bonus = true;
@@ -955,14 +961,14 @@
   }
 
   // Si comparte casilla con otros equipos, puede robarles un anillo
-  // que no tenga (el otro equipo se queda sin ese anillo).
+  // que no tenga (el otro equipo se queda sin ese anillo). Devuelve true si robó.
   async function offerSteal(team) {
     const loot = [];
     state.teams.forEach(o => {
       if (o.id === team.id || o.pos !== team.pos) return;
       o.rings.forEach(r => { if (!hasRing(team, r)) loot.push({ from: o, ring: r }); });
     });
-    if (!loot.length) return;
+    if (!loot.length) return false;
     const pick = await pickOption(
       '¿Qué anillo roban?',
       `<strong>${esc(team.name)}</strong> comparte casilla y respondió bien: puede robar un anillo.`,
@@ -971,13 +977,14 @@
         return { value: l, color: t.color, html: `${esc(t.name)}<small>de ${esc(l.from.name)}</small>` };
       }),
       'No robar');
-    if (!pick) return;
+    if (!pick) return false;
     const { from, ring } = pick;
     from.rings = from.rings.filter(r => norm(r) !== norm(ring));
     state.winners = state.winners.filter(id => id !== from.id);
     renderRings(from, false);
     addRing(team, ring);
     await ringScene(team, ring, from);
+    return true;
   }
 
   function checkWin(team) {
@@ -1002,7 +1009,8 @@
      PREGUNTAS
      ========================================================= */
   // Elige dificultad, pregunta y aplica el resultado.
-  // Devuelve 'ok' (respondió bien), 'fail' o 'pass' (perdió el turno porque
+  // Devuelve 'ok' (respondió bien), 'ring' (respondió bien y ganó o robó un
+  // anillo: termina el turno), 'fail' o 'pass' (perdió el turno porque
   // no quedaban preguntas de la dificultad que le servía).
   async function runQuestion(team, theme) {
     const info = themeInfo(theme);
@@ -1011,7 +1019,7 @@
     const rivals = state.teams.filter(o => o.id !== team.id && o.pos === team.pos && o.rings.length);
     const notes = [
       owned ? 'Ya tienen este anillo: si aciertan, siguen tirando.' : '',
-      rivals.length ? `Si aciertan pueden robarle un anillo a ${rivals.map(o => esc(o.name)).join(' o ')}.` : '',
+      rivals.length ? `Si aciertan una difícil pueden robarle un anillo a ${rivals.map(o => esc(o.name)).join(' o ')}.` : '',
     ].filter(Boolean).map(s => `<br><small>${s}</small>`).join('');
     const easyLeft = questionsLeft(theme, 'facil'), hardLeft = questionsLeft(theme, 'dificil');
     const noneLeft = !easyLeft && !hardLeft;
@@ -1040,12 +1048,14 @@
       state.retry = state.retry.filter(id => id !== q.id);
     }
 
+    let gotRing = false;
     if (owned) {
       [660, 880, 1100].forEach((f, i) => setTimeout(() => blip(f, 0.1, 'sine'), i * 90));
       await sleep(400);
     } else if (level === 'dificil' || k + 1 >= C.EASY_FOR_RING) {
       addRing(team, theme);
       await ringScene(team, theme);
+      gotRing = true;
     } else {
       team.easy[norm(theme)] = k + 1;
       [660, 880].forEach((f, i) => setTimeout(() => blip(f, 0.1, 'sine'), i * 90));
@@ -1053,10 +1063,10 @@
       renderPanel();
       await sleep(900);
     }
-    await offerSteal(team);
+    if (level === 'dificil' && await offerSteal(team)) gotRing = true; // solo la difícil roba
     checkWin(team);
     save();
-    return 'ok';
+    return gotRing ? 'ring' : 'ok';
   }
 
   // Achica la ventana de pregunta hasta que entre en la pantalla. Las preguntas
