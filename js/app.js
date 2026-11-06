@@ -1502,6 +1502,11 @@
     $('#boot-msg').hidden = true;
     document.documentElement.style.setProperty('--step-ms', C.STEP_MS + 'ms');
     loadBank();
+    // Sin banco guardado en este navegador: se precarga el de SYP 2026
+    if (!bank.questions.length && typeof DEFAULT_BANK !== 'undefined') {
+      bank = buildBank(parseCSV(DEFAULT_BANK.csv), DEFAULT_BANK.name);
+      saveBank();
+    }
     bindSetup();
     bindGame();
     bindModals();

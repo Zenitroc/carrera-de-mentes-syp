@@ -84,6 +84,9 @@ Queda guardado en el navegador: no hay que cargarlo cada clase.
   se muestran como A/B/C/D; la respuesta no se muestra. El moderador decide con
   **Correcto** / **Incorrecto**.
 - **Descargar plantilla** baja un CSV listo para completar.
+- El juego viene **precargado** con las preguntas de `preguntas/preguntas-SYP2026-aprobadas (1).csv`
+  (copiadas en `js/preguntas-syp2026.js`). Se usan si el navegador no tiene otro banco guardado;
+  cargar otro CSV las reemplaza. Si se modifica ese CSV, hay que regenerar el `.js`.
 
 ## Configuración (`js/config.js`)
 
