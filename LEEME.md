@@ -1,5 +1,8 @@
 # Polli-Run — guía rápida
 
+> **Tutorial de cómo se juega** (reglas, comodines, anillos, panel del game master):
+> `tutorial.html` (versión visual) y `tutorial.md`.
+
 ## Cómo abrirlo
 Doble clic en `index.html` (Chrome o Edge). No necesita internet ni servidor
 (solo la tipografía Fredoka viene de Google Fonts; sin internet usa una de sistema).
